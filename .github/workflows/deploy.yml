@@ -1,0 +1,81 @@
+name: Deploy MEAN Stack to Linode
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy_infrastructure:
+    runs-on: ubuntu-latest # The runner environment
+    environment: production # Optional: for environment-specific secrets/protections
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3 # Use the official Terraform setup action
+        with:
+          terraform_version: 1.x.x # Specify your desired Terraform version (e.g., 1.7.5)
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ./terraform # Assuming your Terraform files are in a 'terraform' directory
+
+      - name: Terraform Plan
+        run: terraform plan -no-color
+        working-directory: ./terraform
+        env:
+          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }} # Pass Linode API token
+          TF_VAR_ssh_public_key: ${{ secrets.LINODE_SSH_PUBLIC_KEY }} # Pass SSH Public Key
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+        env:
+          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }}
+          TF_VAR_ssh_public_key: ${{ secrets.LINODE_SSH_PUBLIC_KEY }}
+
+      - name: Get Linode IP Address
+        id: get_ip # Assign an ID to reference this step's outputs
+        run: |
+          LINODE_IP=$(terraform output -raw ip_address)
+          echo "LINODE_IP=$LINODE_IP" >> $GITHUB_ENV # Make IP available as an environment variable for subsequent steps
+          echo "ip_address=$LINODE_IP" >> $GITHUB_OUTPUT # Make IP available as a step output
+        working-directory: ./terraform
+        env:
+          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }} # Still needed for Terraform output
+
+  configure_server:
+    runs-on: ubuntu-latest
+    needs: deploy_infrastructure # This job depends on the infra deployment success
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SSH key for Ansible
+        uses: webfactory/ssh-agent@v0.9.0 # Action to add private key to SSH agent
+        with:
+          ssh-private-key: ${{ secrets.LINODE_SSH_PRIVATE_KEY }} # Private key for Ansible to connect
+
+      - name: Install Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y ansible
+
+      - name: Create Ansible inventory file
+        run: |
+          echo "[mean_servers]" > inventory.ini
+          echo "${{ env.LINODE_IP }} ansible_user=root" >> inventory.ini # Use root for initial setup, but ideally switch to `app_user` for app tasks
+        env:
+          LINODE_IP: ${{ env.LINODE_IP }} # Use the IP from the previous job
+
+      - name: Run Ansible Playbook
+        run: ansible-playbook -i inventory.ini main.yml --extra-vars "git_repo_url=${{ github.repositoryUrl }}"
+        # You might need to adjust ansible_user and become_user in your playbook
+        # You can pass variables like git_repo_url using --extra-vars
+        working-directory: ./ansible # Assuming your Ansible playbook is in an 'ansible' directory 
