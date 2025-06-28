@@ -1,0 +1,63 @@
+---
+- name: Install MEAN Stack
+  hosts: all
+  become: true # Run commands with sudo
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: yes
+
+    - name: Install gnupg and curl
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - gnupg
+        - curl
+
+    - name: Add MongoDB GPG key
+      shell: curl -fsSL https://pgp.mongodb.com/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
+      args:
+        creates: /usr/share/keyrings/mongodb-archive-keyring.gpg
+
+    - name: Add MongoDB repository
+      lineinfile:
+        path: /etc/apt/sources.list.d/mongodb-org-6.0.list
+        line: "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse"
+        create: yes
+
+    - name: Update apt cache after adding MongoDB repo
+      apt:
+        update_cache: yes
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+
+    - name: Start and enable MongoDB service
+      systemd:
+        name: mongod
+        state: started
+        enabled: yes
+
+    - name: Add NodeSource PPA for Node.js LTS
+      shell: curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list # Check this path for actual output
+
+    - name: Install Node.js and npm
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install Angular CLI globally
+      npm:
+        name: "@angular/cli"
+        global: yes
+        state: present

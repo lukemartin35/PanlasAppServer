@@ -1,0 +1,49 @@
+# ansible/main.yml (relevant parts)
+---
+- name: Install MEAN Stack
+  hosts: all
+  become: true
+
+  # Define vars here or pass as --extra-vars in GHA
+  vars:
+    app_dir: /var/www/mean-app
+    git_repo_url: "{{ github_repository_url | default('https://github.com/your-username/your-mean-app.git') }}" # Default for local testing
+    app_user: meanappuser
+    app_group: meanappuser
+
+  tasks:
+    # ... (all your existing tasks for MongoDB, Node.js, npm, Angular CLI, Git) ...
+
+    - name: Create application user and group (if they don't exist)
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        state: present
+        shell: /bin/bash
+        create_home: yes
+        home: "/home/{{ app_user }}"
+
+    - name: Ensure application directory exists and has correct permissions
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+        recurse: yes
+
+    # - name: Clone MEAN stack application from Git repository
+    #   ansible.builtin.git:
+    #     repo: "{{ git_repo_url }}" # Uses the variable passed from GHA
+    #     dest: "{{ app_dir }}"
+    #     version: main # Or your specific branch
+    #     force: yes
+    #     accept_hostkey: yes
+    #   become_user: "{{ app_user }}"
+
+    - name: Install Node.js project dependencies (including Express.js)
+      community.general.npm:
+        path: "{{ app_dir }}"
+        state: present
+      become_user: "{{ app_user }}"
+
+    # ... (optional: Build Angular Frontend, Install PM2, Start app) ...
