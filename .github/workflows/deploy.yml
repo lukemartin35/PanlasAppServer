@@ -8,28 +8,28 @@ on:
 
 jobs:
   deploy_infrastructure:
-    runs-on: ubuntu-latest # The runner environment
-    environment: production # Optional: for environment-specific secrets/protections
+    runs-on: ubuntu-latest
+    environment: production # <--- Both jobs will use the 'production' environment
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3 # Use the official Terraform setup action
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.x.x # Specify your desired Terraform version (e.g., 1.7.5)
 
       - name: Initialize Terraform
         run: terraform init
-        working-directory: ./terraform # Assuming your Terraform files are in a 'terraform' directory
+        working-directory: ./terraform
 
       - name: Terraform Plan
         run: terraform plan -no-color
         working-directory: ./terraform
         env:
-          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }} # Pass Linode API token
-          TF_VAR_ssh_public_key: ${{ secrets.LINODE_SSH_PUBLIC_KEY }} # Pass SSH Public Key
+          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }}
+          TF_VAR_ssh_public_key: ${{ secrets.LINODE_SSH_PUBLIC_KEY }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
@@ -39,19 +39,19 @@ jobs:
           TF_VAR_ssh_public_key: ${{ secrets.LINODE_SSH_PUBLIC_KEY }}
 
       - name: Get Linode IP Address
-        id: get_ip # Assign an ID to reference this step's outputs
+        id: get_ip
         run: |
           LINODE_IP=$(terraform output -raw ip_address)
-          echo "LINODE_IP=$LINODE_IP" >> $GITHUB_ENV # Make IP available as an environment variable for subsequent steps
-          echo "ip_address=$LINODE_IP" >> $GITHUB_OUTPUT # Make IP available as a step output
+          echo "LINODE_IP=$LINODE_IP" >> $GITHUB_ENV
+          echo "ip_address=$LINODE_IP" >> $GITHUB_OUTPUT
         working-directory: ./terraform
         env:
-          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }} # Still needed for Terraform output
+          TF_VAR_linode_token: ${{ secrets.LINODE_API_TOKEN }}
 
   configure_server:
     runs-on: ubuntu-latest
     needs: deploy_infrastructure
-    environment: production
+    environment: production # <--- Both jobs will use the 'production' environment
 
     steps:
       - name: Checkout code
@@ -63,15 +63,6 @@ jobs:
           ssh-private-key: ${{ secrets.LINODE_SSH_PRIVATE_KEY }}
           log-public-key: true
 
-      - name: Wait for SSH (TCP Port 22) on Linode VM
-        uses: jakejarvis/wait-for-it-action@master
-        with:
-          host: ${{ env.LINODE_IP }}:22 # Will resolve to 172.105.116.224:22 at runtime
-          timeout: 300
-          check-interval: 5
-        env:
-          LINODE_IP: ${{ env.LINODE_IP }} # The IP from deploy_infrastructure job
-
       - name: Install Ansible
         run: |
           sudo apt update
@@ -80,7 +71,7 @@ jobs:
       - name: Create Ansible inventory file
         run: |
           echo "[mean_servers]" > inventory.ini
-          echo "${{ env.LINODE_IP }} ansible_user=root" >> inventory.ini # 172.105.116.224 will be used here
+          echo "${{ env.LINODE_IP }} ansible_user=root" >> inventory.ini
         env:
           LINODE_IP: ${{ env.LINODE_IP }}
 
