@@ -1,4 +1,4 @@
----
+--- 
 - name: Install MEAN Stack
   hosts: all
   become: true # Run commands with sudo
