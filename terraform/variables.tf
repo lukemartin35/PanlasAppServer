@@ -15,9 +15,3 @@ variable "app_user" {
   type        = string
   default     = "meanappuser" # Or make it a variable you pass from GHA
 }
-
-variable "ssh_public_key" {
-  description = "The SSH public key to add to the instance."
-  type        = string
-  sensitive   = true # Mark as sensitive
-}
