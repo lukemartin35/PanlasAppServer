@@ -25,19 +25,6 @@ resource "linode_instance" "mean_stack_vm" {
   authorized_keys = [
     var.ssh_public_key
   ]
-
-  # Optional: Enable private IP for internal networking if needed
-  private_ip = true
-
-  # # Optional: User data for initial script execution
-  # user_data = file("${path.module}/scripts/install_mean_stack.sh") # Example: path to a shell script
-
-  tags = [
-    "mean-stack",
-    "web-server",
-    "ubuntu"
-  ]
-
 # --- Cloud-Init Configuration ---
   user_data = <<-EOF
     #cloud-config
@@ -83,6 +70,18 @@ resource "linode_instance" "mean_stack_vm" {
     #       AnotherSetting=value
 
   EOF
+
+  # Optional: Enable private IP for internal networking if needed
+  private_ip = true
+
+  # # Optional: User data for initial script execution
+  # user_data = file("${path.module}/scripts/install_mean_stack.sh") # Example: path to a shell script
+
+  tags = [
+    "mean-stack",
+    "web-server",
+    "ubuntu"
+  ]
 }
 
 
