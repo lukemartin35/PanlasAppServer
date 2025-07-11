@@ -49,6 +49,7 @@ resource "linode_instance" "mean_stack_vm" {
         - apt-get install -y git curl wget
 
     EOF
+    }
 
   # Optional: Enable private IP for internal networking if needed
   private_ip = true
